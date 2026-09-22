@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 520" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <style>
+      .box { fill: #ffffff; stroke: #5b6cdb; stroke-width: 1.5; rx: 8; }
+      .box-doc { fill: #f0f2fa; stroke: #b8c0e0; stroke-width: 1; rx: 6; }
+      .box-vue { fill: #e8f0ff; stroke: #5b6cdb; stroke-width: 1.5; rx: 8; }
+      .box-store { fill: #fff4e6; stroke: #e6a65b; stroke-width: 1.5; rx: 8; }
+      .box-copy { fill: #eaf7ed; stroke: #5ba86b; stroke-width: 1.5; rx: 8; }
+      .box-html { fill: #fef0f4; stroke: #d96b8a; stroke-width: 1.5; rx: 8; }
+      .box-notify { fill: #f5edfa; stroke: #9b5bd9; stroke-width: 1.5; rx: 8; }
+      .lbl { font-size: 13px; fill: #2c3e50; font-weight: 600; }
+      .sub { font-size: 11px; fill: #6b7a90; }
+      .tag { font-size: 10px; fill: #5b6cdb; }
+      .arrow { stroke: #5b6cdb; stroke-width: 1.5; fill: none; marker-end: url(#arr); }
+      .arrow-soft { stroke: #b8c0e0; stroke-width: 1.2; fill: none; stroke-dasharray: 4 3; marker-end: url(#arr-soft); }
+      .title { font-size: 16px; fill: #2c3e50; font-weight: 700; }
+      .small-title { font-size: 12px; fill: #6b7a90; font-weight: 600; letter-spacing: 0.5px; }
+    </style>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b6cdb"/>
+    </marker>
+    <marker id="arr-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b8c0e0"/>
+    </marker>
+  </defs>
+
+  <!-- 标题 -->
+  <text x="360" y="24" text-anchor="middle" class="title">同频 · 项目结构与数据流（Day 7 MVP）</text>
+  <text x="360" y="42" text-anchor="middle" class="sub">文件结构 + 数据流向（实线=用户操作路径，虚线=定时/通知路径）</text>
+
+  <!-- ===== 区块一：文件结构 ===== -->
+  <text x="20" y="74" class="small-title">▎文件结构（仓库根目录）</text>
+
+  <!-- 文件树 -->
+  <g transform="translate(20,90)">
+    <!-- 根 -->
+    <rect class="box" x="0" y="0" width="120" height="40"/>
+    <text x="60" y="17" text-anchor="middle" class="lbl">vibecoding学习/</text>
+    <text x="60" y="31" text-anchor="middle" class="sub">项目根目录</text>
+
+    <!-- 第一层 -->
+    <line x1="60" y1="40" x2="60" y2="52" class="arrow-soft"/>
+
+    <!-- index.html -->
+    <rect class="box-html" x="0" y="52" width="160" height="44"/>
+    <text x="80" y="71" text-anchor="middle" class="lbl">index.html</text>
+    <text x="80" y="86" text-anchor="middle" class="sub">入口 · Vue CDN · 三视图</text>
+
+    <!-- src/ -->
+    <rect class="box" x="190" y="52" width="120" height="44"/>
+    <text x="250" y="71" text-anchor="middle" class="lbl">src/</text>
+    <text x="250" y="86" text-anchor="middle" class="sub">源码目录</text>
+
+    <!-- README.md -->
+    <rect class="box-doc" x="340" y="52" width="120" height="44"/>
+    <text x="400" y="71" text-anchor="middle" class="lbl">README.md</text>
+    <text x="400" y="86" text-anchor="middle" class="sub">运行说明 · 未来考虑</text>
+
+    <!-- 文档 -->
+    <rect class="box-doc" x="490" y="0" width="200" height="96" rx="6"/>
+    <text x="590" y="20" text-anchor="middle" class="lbl" fill="#6b7a90">📋 项目文档（Day 1~6 沉淀）</text>
+    <line x1="500" y1="32" x2="680" y2="32" stroke="#dde1ed" stroke-width="1"/>
+    <text x="500" y="48" class="sub">PRD.md</text>
+    <text x="500" y="62" class="sub">research.md</text>
+    <text x="500" y="76" class="sub">TECH_DESIGN.md</text>
+    <text x="500" y="90" class="sub">AGENTS.md</text>
+
+    <!-- src/ 子节点 -->
+    <line x1="250" y1="96" x2="250" y2="108" class="arrow-soft"/>
+    <line x1="80" y1="128" x2="420" y2="128" stroke="#dde1ed" stroke-width="1"/>
+
+    <!-- copy.js -->
+    <rect class="box-copy" x="40" y="108" width="120" height="40"/>
+    <text x="100" y="127" text-anchor="middle" class="lbl">copy.js</text>
+    <text x="100" y="141" text-anchor="middle" class="sub">8 条文案 + pickCopy()</text>
+
+    <!-- storage.js -->
+    <rect class="box-store" x="190" y="108" width="120" height="40"/>
+    <text x="250" y="127" text-anchor="middle" class="lbl">storage.js</text>
+    <text x="250" y="141" text-anchor="middle" class="sub">tb_records_v1 读写</text>
+
+    <!-- app.js -->
+    <rect class="box-vue" x="340" y="108" width="120" height="40"/>
+    <text x="400" y="127" text-anchor="middle" class="lbl">app.js</text>
+    <text x="400" y="141" text-anchor="middle" class="sub">Vue 主组件 · F1+F2+F3</text>
+  </g>
+
+  <!-- 分隔线 -->
+  <line x1="20" y1="280" x2="700" y2="280" stroke="#e5e8f0" stroke-width="1" stroke-dasharray="3 4"/>
+
+  <!-- ===== 区块二：数据流 ===== -->
+  <text x="20" y="304" class="small-title">▎数据流（实线=用户操作，虚线=定时/通知）</text>
+
+  <!-- 浏览器通知 -->
+  <rect class="box-notify" x="40" y="324" width="120" height="48"/>
+  <text x="100" y="344" text-anchor="middle" class="lbl">🔔 浏览器通知</text>
+  <text x="100" y="360" text-anchor="middle" class="sub">Notification API</text>
+
+  <!-- copy.js -->
+  <rect class="box-copy" x="40" y="410" width="120" height="48"/>
+  <text x="100" y="430" text-anchor="middle" class="lbl">copy.js</text>
+  <text x="100" y="446" text-anchor="middle" class="sub">文案库</text>
+
+  <!-- app.js (中心) -->
+  <rect class="box-vue" x="240" y="367" width="160" height="56"/>
+  <text x="320" y="389" text-anchor="middle" class="lbl">app.js</text>
+  <text x="320" y="405" text-anchor="middle" class="sub">Vue 主组件</text>
+  <text x="320" y="419" text-anchor="middle" class="tag">F1 通知 + F2 打卡 + F3 日视图</text>
+
+  <!-- storage.js -->
+  <rect class="box-store" x="480" y="367" width="160" height="56"/>
+  <text x="560" y="389" text-anchor="middle" class="lbl">storage.js</text>
+  <text x="560" y="405" text-anchor="middle" class="sub">TONGPING_STORE</text>
+  <text x="560" y="419" text-anchor="middle" class="tag">getAll / addRecord / …</text>
+
+  <!-- localStorage -->
+  <rect class="box-doc" x="480" y="455" width="160" height="40"/>
+  <text x="560" y="473" text-anchor="middle" class="lbl">localStorage</text>
+  <text x="560" y="487" text-anchor="middle" class="sub">Key: tb_records_v1</text>
+
+  <!-- 用户操作 -->
+  <rect class="box" x="40" y="495" width="120" height="0"/>
+  <text x="100" y="510" text-anchor="middle" class="sub" fill="#5b6cdb">👤 用户</text>
+
+  <!-- 箭头：app.js → 通知 -->
+  <path d="M 260 380 Q 180 360 160 348" class="arrow"/>
+  <text x="195" y="358" class="sub" fill="#5b6cdb">调通知</text>
+
+  <!-- 虚线：定时器 → app.js → 通知 -->
+  <path d="M 100 410 Q 100 380 260 390" class="arrow-soft"/>
+  <text x="115" y="396" class="sub" fill="#6b7a90">每 60 分钟</text>
+
+  <!-- 虚线：copy.js → app.js -->
+  <path d="M 160 434 L 240 402" class="arrow-soft"/>
+  <text x="180" y="425" class="sub" fill="#6b7a90">pickCopy()</text>
+
+  <!-- 实线：app.js → storage.js -->
+  <line x1="400" y1="395" x2="480" y2="395" class="arrow"/>
+  <text x="425" y="388" class="sub" fill="#5b6cdb">读/写</text>
+
+  <!-- 实线：storage.js → localStorage -->
+  <line x1="560" y1="423" x2="560" y2="455" class="arrow"/>
+  <text x="568" y="442" class="sub" fill="#5b6cdb">JSON 序列化</text>
+
+  <!-- 用户操作循环 -->
+  <path d="M 100 367 Q 100 320 240 320 Q 380 320 320 367" class="arrow" stroke-dasharray="0"/>
+  <text x="220" y="316" class="sub" fill="#5b6cdb">👤 打卡/展开面板 → 触发响应式更新</text>
+</svg>
