@@ -5,11 +5,15 @@
 
 (function () {
   if (!window.Vue) { console.error('[app] Vue 未加载'); return; }
-  if (!window.TONGPING_COPY || !window.TONGPING_STORE) { console.error('[app] 依赖未就绪'); return; }
+  if (!window.TONGPING_COPY || !window.TONGPING_STORE || !window.TONGPING_THEMES) {
+    console.error('[app] 依赖未就绪'); return;
+  }
 
   const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
   const Copy = window.TONGPING_COPY;
   const Store = window.TONGPING_STORE;
+  const Themes = window.TONGPING_THEMES;
+  const Patterns = window.TONGPING_PATTERNS;
 
   // ===== 工具 =====
   const pad2 = function (n) { return String(n).padStart(2, '0'); };
@@ -35,6 +39,12 @@
       const panelOpen = ref(false);
       const pendingScore = ref(null);
       const pendingNote = ref('');
+      const editingId = ref(null);   // D8 #5：null=新建模式；字符串=编辑该 id
+      const themeName = ref(Store.getTheme());   // D8 #2：当前主题名
+      const themeMenuOpen = ref(false);          // 主题切换菜单是否展开
+      const patternName = ref(Store.getPattern()); // D8 #2 扩展：当前背景图案
+      const patternMenuOpen = ref(false);        // 图案选择菜单是否展开
+      const customBg = ref(Store.getCustomBg()); // D8 #2 扩展-2：用户自定义背景图 data URL
       const notifPermission = ref(
         typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
       );
@@ -42,6 +52,8 @@
       let tickTimer = null;
       let nextNotifTimer = null;
       let firstNotifTimer = null;
+      let setupCheckTimer = null;   // D8 #3：每分钟检查一次是否到 23:00
+      let setupNotifiedDate = '';   // 今天的 23:00 提醒是否已发过（避免反复弹）
 
       // ----- 计算属性 -----
       const dateText = computed(function () {
@@ -120,32 +132,185 @@
         }, ms);
       }
 
+      // ----- D8 #3：23:00 设任务提醒 -----
+      // 设计依据：PRD 增量 §3 + §8.3（多触发场景调度器）
+      // 触发条件：now.hour === 23 && now.minute < 30 && 今天没发过
+      // 今天没发过：用模块内状态记录（页面刷新后会重发一次，符合"提醒"语义）
+      function fireSetupReminder() {
+        if (typeof Notification === 'undefined') return;
+        if (Notification.permission !== 'granted') return;
+        const body = Copy.pickSetupCopy();
+        try {
+          const n = new Notification('同频 · 该设明天任务了', {
+            body: body,
+            tag: 'tongping-setup-reminder',
+          });
+          n.onclick = function () {
+            // 降级路径：现在没有任务清单 UI（D9 #4 上线），先弹提示占位
+            window.focus();
+            alert('任务清单编辑 UI 在 D9 上线（完成 #4 后这里会打开真正的清单编辑）。');
+          };
+          setTimeout(function () { n.close(); }, 15000);
+        } catch (e) {
+          console.warn('[app] setup notification failed:', e);
+        }
+      }
+
+      function checkSetupReminder() {
+        const d = new Date();
+        const todayKey = fmtDate(d);
+        // 已发过今天 → 跳过
+        if (setupNotifiedDate === todayKey) return;
+        // 未到 23 点 → 跳过
+        if (d.getHours() < Copy.SETUP_SCHEDULE.triggerHour) return;
+        // 超过 23:30 → 跳过（今天的设任务窗口已过）
+        if (d.getHours() === Copy.SETUP_SCHEDULE.triggerHour &&
+            d.getMinutes() >= Copy.SETUP_SCHEDULE.lastCallMinute) return;
+        // 触发
+        setupNotifiedDate = todayKey;
+        fireSetupReminder();
+      }
+
+      function testSetupReminder() {
+        // 测试按钮：绕过"今天是否发过"判断，方便随时验证
+        setupNotifiedDate = '__test__';
+        // 如果用户已经点了"阻止"，直接弹 alert 告诉怎么打开（而不是没反应）
+        if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+          alert('通知权限被拒绝了，测试提醒弹不出来。\n\n去浏览器地址栏左边 🔒 图标 → "网站设置" → "通知" → 改成"允许"，再点一次。');
+          return;
+        }
+        fireSetupReminder();
+      }
+
       // ----- 打卡 -----
       function openModal() {
         pendingScore.value = null;
         pendingNote.value = '';
+        editingId.value = null;
         modalOpen.value = true;
       }
-      function closeModal() { modalOpen.value = false; }
+      function closeModal() {
+        modalOpen.value = false;
+        editingId.value = null;
+      }
       function canSave() { return pendingScore.value !== null; }
       function saveRecord() {
         if (!canSave()) return;
-        Store.addRecord(pendingScore.value, pendingNote.value, false);
+        if (editingId.value) {
+          // 编辑模式：按 id 更新
+          Store.updateRecord(editingId.value, pendingScore.value, pendingNote.value);
+        } else {
+          Store.addRecord(pendingScore.value, pendingNote.value, false);
+        }
         loadToday();
-        modalOpen.value = false;
-        scheduleNextReminder(); // PRD F2：保存后下一提醒重新计时
+        closeModal();
+        if (!editingId.value) scheduleNextReminder(); // PRD F2：新建后下一提醒重新计时；编辑不重置
       }
       function skipToday() {
         Store.addRecord(null, '', true);
         loadToday();
-        modalOpen.value = false;
+        closeModal();
         scheduleNextReminder();
+      }
+
+      // ----- D8 #5：编辑 / 删除 -----
+      function startEdit(record) {
+        editingId.value = record.id;
+        pendingScore.value = record.skipped ? null : (typeof record.score === 'number' ? record.score : null);
+        pendingNote.value = record.note || '';
+        modalOpen.value = true;
+      }
+      function removeRecord(record) {
+        if (!confirm('删掉 ' + fmtTime(record.ts) + ' 这条打卡？')) return;
+        Store.deleteRecord(record.id);
+        loadToday();
       }
 
       function togglePanel() { panelOpen.value = !panelOpen.value; }
 
+      // ----- D8 #2：主题切换 -----
+      const themeList = Object.keys(Themes.THEMES).map(function (k) {
+        return Object.assign({ key: k }, Themes.THEMES[k]);
+      });
+      function selectTheme(name) {
+        themeName.value = name;
+        Themes.applyTheme(name);
+        Store.setTheme(name);
+        themeMenuOpen.value = false;
+      }
+      function toggleThemeMenu() {
+        themeMenuOpen.value = !themeMenuOpen.value;
+        if (themeMenuOpen.value) patternMenuOpen.value = false;
+      }
+
+      // ----- D8 #2 扩展：背景图案切换 -----
+      const patternList = computed(function () {
+        return Patterns && Patterns.LIST ? Patterns.LIST : [];
+      });
+      function selectPattern(id) {
+        patternName.value = id;
+        Store.setPattern(id);
+        patternMenuOpen.value = false;
+      }
+      function togglePatternMenu() {
+        patternMenuOpen.value = !patternMenuOpen.value;
+        if (patternMenuOpen.value) themeMenuOpen.value = false;
+      }
+
+      // ----- D8 #2 扩展-2：用户上传自定义背景图 -----
+      function applyCustomBg(dataUrl) {
+        customBg.value = dataUrl || '';
+        if (dataUrl) {
+          document.body.style.setProperty('--tp-custom-bg', 'url("' + dataUrl + '")');
+          document.body.classList.add('has-custom-bg');
+        } else {
+          document.body.style.removeProperty('--tp-custom-bg');
+          document.body.classList.remove('has-custom-bg');
+        }
+      }
+      function onUploadBg(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        // 2MB 限制（localStorage 5MB 上限，base64 后会涨 33%）
+        if (file.size > 2 * 1024 * 1024) {
+          alert('图片太大（' + Math.round(file.size / 1024) + ' KB），请用 2MB 以内的图。');
+          event.target.value = '';
+          return;
+        }
+        if (!file.type.startsWith('image/')) {
+          alert('请选择图片文件（jpg / png / gif / webp）。');
+          event.target.value = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const dataUrl = e.target.result;
+          const ok = Store.setCustomBg(dataUrl);
+          if (!ok) {
+            alert('保存失败（localStorage 可能满了）。先清缓存再来。');
+            return;
+          }
+          applyCustomBg(dataUrl);
+          patternMenuOpen.value = false;
+        };
+        reader.onerror = function () {
+          alert('读取图片失败，请换一张试试。');
+        };
+        reader.readAsDataURL(file);
+        // 清空 input，允许重复上传同一张图
+        event.target.value = '';
+      }
+      function clearCustomBg() {
+        Store.clearCustomBg();
+        applyCustomBg('');
+        patternMenuOpen.value = false;
+      }
+
       // ----- 生命周期 -----
       onMounted(function () {
+        Themes.applyTheme(themeName.value);
+        document.body.dataset.pattern = patternName.value;
+        if (customBg.value) applyCustomBg(customBg.value);
         loadToday();
         requestNotificationPermission();
         tickTimer = setInterval(function () { now.value = new Date(); }, 30 * 1000);
@@ -153,12 +318,16 @@
           fireNotification();
           scheduleNextReminder();
         }, Copy.SCHEDULE.firstDelaySeconds * 1000);
+        // D8 #3：每分钟检查一次是否到 23:00
+        setupCheckTimer = setInterval(checkSetupReminder, 60 * 1000);
+        checkSetupReminder();
       });
 
       onUnmounted(function () {
         if (tickTimer) clearInterval(tickTimer);
         if (nextNotifTimer) clearTimeout(nextNotifTimer);
         if (firstNotifTimer) clearTimeout(firstNotifTimer);
+        if (setupCheckTimer) clearInterval(setupCheckTimer);
       });
 
       return {
@@ -174,6 +343,16 @@
         loadToday: loadToday,
         openModal: openModal, closeModal: closeModal, canSave: canSave,
         saveRecord: saveRecord, skipToday: skipToday, togglePanel: togglePanel,
+        startEdit: startEdit, removeRecord: removeRecord,
+        testSetupReminder: testSetupReminder,
+        // D8 #2 主题
+        themeName: themeName, themeMenuOpen: themeMenuOpen,
+        patternName: patternName, patternMenuOpen: patternMenuOpen,
+        patternList: patternList,
+        customBg: customBg,
+        selectPattern: selectPattern, togglePatternMenu: togglePatternMenu,
+        onUploadBg: onUploadBg, clearCustomBg: clearCustomBg,
+        themeList: themeList, selectTheme: selectTheme, toggleThemeMenu: toggleThemeMenu,
         // 工具
         fmtTime: fmtTime,
       };
@@ -194,7 +373,44 @@
               <template v-else>等待通知授权…</template>
             </div>
           </div>
-          <span class="badge" :class="{ empty: todayDone === 0 }">今日 {{ todayDone }} / 8</span>
+          <div class="topbar-right">
+            <span class="badge" :class="{ empty: todayDone === 0 }">今日 {{ todayDone }} / 8</span>
+            <div class="theme-picker">
+              <button class="theme-toggle" @click="toggleThemeMenu" title="切换主题">🎨</button>
+              <div v-if="themeMenuOpen" class="theme-menu">
+                <button v-for="t in themeList" :key="t.key"
+                  class="theme-option" :class="{ active: themeName === t.key }"
+                  @click="selectTheme(t.key)">
+                  <span class="theme-swatch" :style="{ background: t['--tp-primary'], borderColor: t['--tp-border'] }"></span>
+                  {{ t.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- D8 #2 扩展：背景图案按钮 -->
+            <div class="theme-picker">
+              <button class="ghost" @click="togglePatternMenu" title="选择背景图案">🖼️</button>
+              <div v-if="patternMenuOpen" class="theme-menu pattern-menu">
+                <button v-for="p in patternList" :key="p.id"
+                  class="theme-option" :class="{ active: patternName === p.id }"
+                  @click="selectPattern(p.id)">
+                  <span class="pattern-preview" :class="'preview-' + p.id"></span>
+                  {{ p.name }}
+                </button>
+                <div class="pattern-divider"></div>
+                <label class="theme-option upload-option">
+                  <span class="upload-icon">📁</span>
+                  {{ customBg ? '换一张图' : '上传图片' }}
+                  <input type="file" accept="image/*" @change="onUploadBg" hidden>
+                </label>
+                <button v-if="customBg" class="theme-option clear-option" @click="clearCustomBg">
+                  <span class="upload-icon">🔄</span>
+                  清除自定义图
+                </button>
+                <div class="pattern-hint">自定义图会盖住内置图案，限制 2MB</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ===== P1 今日卡片列表 ===== -->
@@ -205,6 +421,10 @@
             <span class="time">{{ fmtTime(r.ts) }}</span>
             <span class="score">{{ r.skipped ? '⏭' : r.score }}</span>
             <span class="note">{{ r.note || (r.skipped ? '今天没做' : '（无备注）') }}</span>
+            <span class="record-actions">
+              <button v-if="!r.skipped" class="icon" @click.stop="startEdit(r)" title="编辑">✏️</button>
+              <button class="icon" @click.stop="removeRecord(r)" title="删除">🗑️</button>
+            </span>
           </div>
         </div>
 
@@ -214,6 +434,7 @@
           <button class="secondary" @click="togglePanel">
             {{ panelOpen ? '收起日复盘' : '打开日复盘' }}
           </button>
+          <button class="ghost" @click="testSetupReminder">🌙 测试 23:00 提醒</button>
         </div>
 
         <!-- ===== P3 日复盘面板 ===== -->
@@ -256,7 +477,7 @@
         <!-- ===== P2 打卡弹窗 ===== -->
         <div v-if="modalOpen" class="modal-mask" @click.self="closeModal">
           <div class="modal">
-            <h2>给现在打个分</h2>
+            <h2>{{ editingId ? '编辑打卡' : '给现在打个分' }}</h2>
 
             <div class="field">
               <label class="field-label">
@@ -275,11 +496,11 @@
 
             <div class="modal-actions">
               <div class="left">
-                <button class="ghost" @click="skipToday">跳过（今天没做）</button>
+                <button v-if="!editingId" class="ghost" @click="skipToday">跳过（今天没做）</button>
               </div>
               <div style="display:flex;gap:8px;">
                 <button class="secondary" @click="closeModal">取消</button>
-                <button class="primary" :disabled="!canSave()" @click="saveRecord">保存</button>
+                <button class="primary" :disabled="!canSave()" @click="saveRecord">{{ editingId ? '保存修改' : '保存' }}</button>
               </div>
             </div>
           </div>

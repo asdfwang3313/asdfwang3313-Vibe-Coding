@@ -13,6 +13,27 @@
     firstDelaySeconds: 30,  // 页面打开 30 秒后发第一次（让用户先看一眼界面）
   };
 
+  // ===== 23:00 设任务提醒配置（D8 #3）=====
+  // 设计依据：PRD 增量 §3 业务流程 + §8.3 调度器升级
+  // 触发条件：每天 23:00 ~ 23:30 之间，页面在前台时检查一次是否到点
+  const SETUP_SCHEDULE = {
+    triggerHour: 23,         // 23:00 开始提醒
+    lastCallMinute: 30,      // 23:30 截止（再不设今晚就过 0 点了）
+    oncePerDay: true,        // 每天只发一次（用 localStorage 标记）
+  };
+
+  // ===== 设任务文案：2 条（理性 1 + 通用 1）=====
+  // 为什么只有 2 条：场景单一（"该设任务了"），文案不必多
+  const SETUP_COPY = [
+    '23:00 了，明天打算做哪几件事？点我去设。',
+    '23:30 之前设完明天的任务清单，从今晚开始规划。',
+  ];
+
+  // ===== 拍一条设任务文案 =====
+  function pickSetupCopy() {
+    return SETUP_COPY[Math.floor(Math.random() * SETUP_COPY.length)];
+  }
+
   // ===== 文案库：8 条，按调性分 4 类 =====
   // 模板里 {n} {m} {s} 会被上下文参数替换
   const COPY_LIBRARY = {
@@ -64,7 +85,10 @@
   // ===== 暴露到 window（不用打包器时的做法） =====
   window.TONGPING_COPY = {
     SCHEDULE: SCHEDULE,
+    SETUP_SCHEDULE: SETUP_SCHEDULE,
+    SETUP_COPY: SETUP_COPY,
     COPY_LIBRARY: COPY_LIBRARY,
     pickCopy: pickCopy,
+    pickSetupCopy: pickSetupCopy,
   };
 })();

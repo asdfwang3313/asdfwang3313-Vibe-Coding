@@ -4,6 +4,9 @@
 
 (function () {
   const KEY = 'tb_records_v1';
+  const THEME_KEY = 'tb_theme_v1';      // D8 #2：用户选择的主题
+  const PATTERN_KEY = 'tb_pattern_v1';  // D8 #2 扩展：用户选择的背景图案
+  const BG_CUSTOM_KEY = 'tb_bg_custom_v1'; // D8 #2 扩展：用户上传的自定义背景图（data URL）
 
   // ===== 内部 =====
   function readRaw() {
@@ -61,6 +64,28 @@
     return rec;
   }
 
+  // D8 #5：按 id 改一条记录（分数 + 备注；skipped 不可改；id/ts 不变）
+  // 返回更新后的对象；找不到返回 null
+  function updateRecord(id, score, note) {
+    const arr = readRaw();
+    const idx = arr.findIndex(function (r) { return r && r.id === id; });
+    if (idx === -1) return null;
+    arr[idx].score = typeof score === 'number' ? score : arr[idx].score;
+    arr[idx].note = typeof note === 'string' ? note : arr[idx].note;
+    writeRaw(arr);
+    return arr[idx];
+  }
+
+  // D8 #5：按 id 删一条记录；返回 true/false
+  function deleteRecord(id) {
+    const arr = readRaw();
+    const idx = arr.findIndex(function (r) { return r && r.id === id; });
+    if (idx === -1) return false;
+    arr.splice(idx, 1);
+    writeRaw(arr);
+    return true;
+  }
+
   function getTodayRecords() {
     const start = startOfToday();
     return readRaw().filter(function (r) { return r && r.ts >= start; });
@@ -84,14 +109,67 @@
     try { localStorage.removeItem(KEY); } catch (e) { /* noop */ }
   }
 
+  // ===== D8 #2：主题持久化 =====
+  function getTheme() {
+    try {
+      const v = localStorage.getItem(THEME_KEY);
+      return v || 'default';
+    } catch (e) { return 'default'; }
+  }
+  function setTheme(name) {
+    try { localStorage.setItem(THEME_KEY, name); } catch (e) { /* noop */ }
+  }
+
+  // ===== D8 #2 扩展：背景图案持久化 =====
+  function getPattern() {
+    try {
+      const v = localStorage.getItem(PATTERN_KEY);
+      return v || 'none';
+    } catch (e) { return 'none'; }
+  }
+  function setPattern(id) {
+    try { localStorage.setItem(PATTERN_KEY, id); } catch (e) { /* noop */ }
+  }
+
+  // ===== D8 #2 扩展：用户自定义背景图（data URL） =====
+  function getCustomBg() {
+    try {
+      return localStorage.getItem(BG_CUSTOM_KEY) || '';
+    } catch (e) { return ''; }
+  }
+  function setCustomBg(dataUrl) {
+    try {
+      localStorage.setItem(BG_CUSTOM_KEY, dataUrl);
+      return true;
+    } catch (e) {
+      console.warn('[storage] 自定义背景图保存失败（可能 localStorage 满）:', e);
+      return false;
+    }
+  }
+  function clearCustomBg() {
+    try { localStorage.removeItem(BG_CUSTOM_KEY); } catch (e) { /* noop */ }
+  }
+
   // ===== 暴露 =====
   window.TONGPING_STORE = {
     KEY: KEY,
+    THEME_KEY: THEME_KEY,
+    PATTERN_KEY: PATTERN_KEY,
+    BG_CUSTOM_KEY: BG_CUSTOM_KEY,
     getAll: getAll,
     addRecord: addRecord,
+    updateRecord: updateRecord,
+    deleteRecord: deleteRecord,
     getTodayRecords: getTodayRecords,
     getTodayDone: getTodayDone,
     getLastScore: getLastScore,
+    getTheme: getTheme,
+    setTheme: setTheme,
+    getPattern: getPattern,
+    setPattern: setPattern,
+    getCustomBg: getCustomBg,
+    setCustomBg: setCustomBg,
+    clearCustomBg: clearCustomBg,
     clearAll: clearAll,
   };
 })();
