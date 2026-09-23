@@ -53,6 +53,10 @@
       const completedIds = ref(new Set());            // 已勾选任务 id 集合
       const locked = ref(false);                       // 演示 23:30 后的只读模式（点「🔒 演示只读」切换）
 
+      // ----- D8 第2周：四种页面状态（成功/空/加载/错误）-----
+      const loading = ref(true);                       // 加载态：onMounted 模拟 800ms（localStorage 实际瞬时，模拟让它可见）
+      const storageError = ref(false);                 // 错误态：localStorage 不可用（隐私模式/被禁用）
+
       let tickTimer = null;
       let setupCheckTimer = null;
       let setupNotifiedDate = '';                      // 今天 23:00 提醒是否已发过
@@ -136,6 +140,28 @@
       }
       function toggleLocked() {
         locked.value = !locked.value;
+      }
+
+      // ----- D8 第2周：错误态探测 + 重试 -----
+      function detectStorageError() {
+        // 探测：往 localStorage 试写一个临时 key 再删掉；写不进去 = 不可用
+        try {
+          const probeKey = '__tp_probe__';
+          localStorage.setItem(probeKey, '1');
+          localStorage.removeItem(probeKey);
+          return false;
+        } catch (e) {
+          console.warn('[app] localStorage 不可用:', e);
+          return true;
+        }
+      }
+      function retryStorage() {
+        storageError.value = detectStorageError();
+        if (!storageError.value) {
+          // 恢复后重读一遍持久化配置（主题等）
+          themeName.value = Store.getTheme();
+          Themes.applyTheme(themeName.value);
+        }
       }
 
       // ----- 通知 -----
@@ -263,6 +289,19 @@
 
       function togglePanel() { panelOpen.value = !panelOpen.value; }
 
+      // ----- D8 第2周：调试钩子（console 里切换四种状态演示，本地应用无泄露风险）-----
+      // 用法：__TP_DEBUG__.showLoading() / showError() / clearError() / retryStorage() / clearTasks()
+      window.__TP_DEBUG__ = {
+        showLoading: function (ms) {
+          loading.value = true;
+          setTimeout(function () { loading.value = false; }, ms || 1500);
+        },
+        showError: function () { storageError.value = true; },
+        clearError: function () { storageError.value = false; },
+        retryStorage: retryStorage,
+        clearTasks: function () { tasks.value = []; },   // 演示空态（正常 UI 删不到 0 个）
+      };
+
       // ----- 生命周期 -----
       onMounted(function () {
         Themes.applyTheme(themeName.value);
@@ -273,6 +312,10 @@
         // D8 #3：每分钟检查一次是否到 23:00
         setupCheckTimer = setInterval(checkSetupReminder, 60 * 1000);
         checkSetupReminder();
+        // D8 第2周：错误态探测（localStorage 是否可写）
+        storageError.value = detectStorageError();
+        // D8 第2周：加载态模拟 800ms（localStorage 实际瞬时；模拟是为了让状态可见，真实等待发生在 Step 4 接 API 后）
+        setTimeout(function () { loading.value = false; }, 800);
       });
 
       onUnmounted(function () {
@@ -297,6 +340,7 @@
         addTask: addTask, removeTask: removeTask, updateTaskName: updateTaskName,
         updateTaskScore: updateTaskScore, toggleTask: toggleTask, toggleLocked: toggleLocked,
         togglePanel: togglePanel, testSetupReminder: testSetupReminder,
+        retryStorage: retryStorage,
         // D8 #2 主题
         themeList: themeList, selectTheme: selectTheme, toggleThemeMenu: toggleThemeMenu,
         // D8 #2 扩展
@@ -375,30 +419,51 @@
             </div>
           </div>
 
-          <div class="task-list">
-            <div v-for="t in tasks" :key="t.id" class="task-row" :class="{ 'task-done': completedIds.has(t.id), 'task-locked': locked }">
-              <input type="checkbox" class="task-check"
-                :checked="completedIds.has(t.id)"
-                :disabled="locked"
-                @change="toggleTask(t.id)">
-              <input type="text" class="task-name"
-                :value="t.name"
-                :disabled="locked"
-                maxlength="30"
-                @input="updateTaskName(t.id, $event.target.value)"
-                placeholder="任务名">
-              <input type="number" class="task-score"
-                :value="t.score"
-                :disabled="locked"
-                min="0" max="100" step="1"
-                @input="updateTaskScore(t.id, $event.target.value)">
-              <span class="task-score-unit">分</span>
-              <button v-if="!locked" class="icon task-remove" @click.stop="removeTask(t.id)" title="删除任务">×</button>
-              <span v-else class="task-remove-placeholder"></span>
-            </div>
+          <!-- 状态 1/4：加载中 -->
+          <div v-if="loading" class="state-box state-loading">
+            <span class="spinner"></span> 正在加载任务…
           </div>
 
-          <div v-if="!locked" class="tasks-actions">
+          <!-- 状态 2/4：错误（localStorage 不可用） -->
+          <div v-else-if="storageError" class="state-box state-error">
+            ⚠️ 本地存储不可用（可能是隐私窗口，或浏览器禁用了 localStorage）。<br>
+            页面还能看，但你的改动保存不下来。
+            <br>
+            <button class="secondary" @click="retryStorage">重新检测</button>
+          </div>
+
+          <!-- 状态 3/4：空（还没设任务清单；假数据下不可达，Step 3 真数据后触发） -->
+          <div v-else-if="tasks.length === 0" class="state-box">
+            今天还没设任务清单。前一晚 23:00-23:30 设置。
+          </div>
+
+          <!-- 状态 4/4：成功 -->
+          <template v-else>
+            <div class="task-list">
+              <div v-for="t in tasks" :key="t.id" class="task-row" :class="{ 'task-done': completedIds.has(t.id), 'task-locked': locked }">
+                <input type="checkbox" class="task-check"
+                  :checked="completedIds.has(t.id)"
+                  :disabled="locked"
+                  @change="toggleTask(t.id)">
+                <input type="text" class="task-name"
+                  :value="t.name"
+                  :disabled="locked"
+                  maxlength="30"
+                  @input="updateTaskName(t.id, $event.target.value)"
+                  placeholder="任务名">
+                <input type="number" class="task-score"
+                  :value="t.score"
+                  :disabled="locked"
+                  min="0" max="100" step="1"
+                  @input="updateTaskScore(t.id, $event.target.value)">
+                <span class="task-score-unit">分</span>
+                <button v-if="!locked" class="icon task-remove" @click.stop="removeTask(t.id)" title="删除任务">×</button>
+                <span v-else class="task-remove-placeholder"></span>
+              </div>
+            </div>
+          </template>
+
+          <div v-if="!loading && !storageError && tasks.length > 0 && !locked" class="tasks-actions">
             <button class="secondary" @click="addTask">+ 添加任务</button>
             <button class="ghost" @click="toggleLocked" title="演示：切到 23:30 后的只读模式">🔒 演示只读</button>
           </div>

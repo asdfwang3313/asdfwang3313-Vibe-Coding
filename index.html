@@ -524,6 +524,43 @@
     .badge.badge-warn {
       background: #d8543a;
     }
+
+    /* ===== D8 第2周：四种页面状态（加载/错误/空 复用 state-box）===== */
+    .state-box {
+      background: var(--tp-card);
+      border: 1px dashed var(--tp-border);
+      border-radius: 8px;
+      padding: 24px 16px;
+      text-align: center;
+      font-size: 14px;
+      color: var(--tp-text-soft);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .state-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--tp-primary-soft);
+      border-top-color: var(--tp-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .state-error {
+      border: 1px solid #d8543a;
+      color: #d8543a;
+    }
+    .state-error button {
+      margin-top: 12px;
+      font-size: 13px;
+      padding: 6px 14px;
+    }
   </style>
 </head>
 <body>
