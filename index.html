@@ -131,7 +131,11 @@
       font-size: 12px;
       white-space: nowrap;
     }
-    .badge.empty { background: var(--tp-text-soft); opacity: 0.4; }
+    .badge.empty {
+      background: var(--tp-border);
+      color: var(--tp-text);
+      opacity: 1;
+    }
 
     /* ===== 卡片列表（P1） ===== */
     .records { margin-bottom: 24px; }
@@ -172,6 +176,12 @@
       line-height: 1;
     }
     .icon:hover { background: var(--tp-primary-soft); }
+    .icon:focus-visible,
+    .theme-toggle:focus-visible,
+    button.ghost:focus-visible {
+      outline: 2px solid var(--tp-primary);
+      outline-offset: 2px;
+    }
     .empty-tip {
       text-align: center;
       color: var(--tp-text-soft);
@@ -411,9 +421,9 @@
       align-items: baseline;
       gap: 8px;
       margin: 0;
-      font-size: 14px;
-      color: var(--tp-text-soft);
-      font-weight: 500;
+      font-size: 16px;
+      color: var(--tp-text);
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -453,8 +463,12 @@
       transition: opacity 0.15s, background 0.15s;
     }
     .task-row.task-done {
-      opacity: 0.55;
       background: var(--tp-primary-soft);
+    }
+    .task-row.task-done .task-name,
+    .task-row.task-done .task-score {
+      color: var(--tp-text-soft);
+      text-decoration: line-through;
     }
     .task-row.task-locked { opacity: 0.7; }
     .task-check {
@@ -561,6 +575,14 @@
       font-size: 13px;
       padding: 6px 14px;
     }
+
+    /* ===== 课程 Day 9 设计审查 #3：手机宽度布局 ===== */
+    @media (max-width: 420px) {
+      .task-row { padding: 8px 10px; gap: 6px; }
+      .task-row .task-score { width: 48px; padding: 4px; }
+      .task-row .task-remove { padding: 4px 10px; font-size: 22px; }
+      .container { padding: 20px 12px; }
+    }
   </style>
 </head>
 <body>
@@ -577,7 +599,7 @@
 
   <!-- ===== 脚本加载顺序 ===== -->
   <!-- 1. Vue 3（CDN：jsdelivr，直出不跳转） -->
-  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.5.13/vue.global.prod.min.js"></script>
 
   <!-- 2. 文案库（F1 通知的素材） -->
   <script src="src/copy.js"></script>
