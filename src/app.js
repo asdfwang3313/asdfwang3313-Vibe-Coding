@@ -358,7 +358,6 @@
         <div class="topbar">
           <div>
             <h1>同频</h1>
-            <div class="date">{{ dateText }}</div>
             <div class="next-reminder">
               <template v-if="notifPermission === 'granted'">通知已开启 · 23:00 提醒设任务</template>
               <template v-else-if="notifPermission === 'denied'">通知被拒绝（浏览器设置里改）</template>
@@ -403,6 +402,7 @@
                 <div class="pattern-hint">自定义图会盖住内置图案，限制 2MB</div>
               </div>
             </div>
+            <div class="date topbar-date">{{ dateText }}</div>
           </div>
         </div>
 
